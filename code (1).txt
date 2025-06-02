@@ -1,0 +1,199 @@
+import React from 'react';
+import type { ResultsData } from '../types';
+import { KolbLearningStyle } from '../types'; // Correctly import KolbLearningStyle from types
+import { LEARNING_STYLE_DEFINITIONS, KOLB_QUESTIONS, LIKERT_SCALE_OPTIONS } from '../constants'; // LEARNING_STYLE_DEFINITIONS remains from constants
+import StyledButton from './StyledButton';
+
+interface ResultsDisplayProps {
+  results: ResultsData;
+  onRetake: () => void;
+}
+
+const ScoreCard: React.FC<{ title: string; value: number | string; colorClass?: string, borderColorClass?: string, extraInfo?: string }> =
+  ({ title, value, colorClass = "text-primary", borderColorClass = "border-gray-200", extraInfo }) => (
+  <div className={`bg-neutral-lightest p-5 rounded-xl shadow-md text-center border-2 ${borderColorClass} transition-all hover:shadow-lg flex flex-col justify-between`}>
+    <div>
+      <h4 className="text-md font-medium text-neutral-dark">{title}</h4>
+      <p className={`text-3xl font-bold ${colorClass} mt-1`}>{value}</p>
+    </div>
+    {extraInfo && <p className="text-xs text-neutral-DEFAULT mt-2">{extraInfo}</p>}
+  </div>
+);
+
+const ExplanationSection: React.FC<{title: string; children: React.ReactNode; initialOpen?: boolean}> = ({title, children, initialOpen = false}) => {
+  const [isOpen, setIsOpen] = React.useState(initialOpen);
+  return (
+    <div className="bg-neutral-lightest p-6 rounded-xl shadow-md border border-gray-200 mb-6">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex justify-between items-center w-full text-left"
+        aria-expanded={isOpen}
+      >
+        <h4 className="text-xl font-semibold text-neutral-darkest font-slab">{title}</h4>
+        <span className={`transform transition-transform duration-200 text-primary text-2xl ${isOpen ? 'rotate-180' : 'rotate-0'}`}>
+          {isOpen ? '-' : '+'}
+        </span>
+      </button>
+      {isOpen && (
+        <div className="mt-4 text-neutral-dark space-y-3 text-lg leading-relaxed">
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const ResultsDisplay: React.FC<ResultsDisplayProps> = ({ results, onRetake }) => {
+  const { userName, scores, ac_ce_score, ae_ro_score, learningStyle, submissionDate } = results;
+  const styleDetails = LEARNING_STYLE_DEFINITIONS[learningStyle];
+
+  if (!styleDetails) {
+    return <p className="text-center text-red-500 text-lg p-10">Error: Learning style details not found.</p>;
+  }
+  
+  const getScoreColor = (score: number) => {
+    if (score > 3) return "text-green-500"; // Strong positive
+    if (score < -3) return "text-red-500"; // Strong negative
+    if (score > 0) return "text-green-400"; // Mild positive
+    if (score < 0) return "text-red-400"; // Mild negative
+    return "text-neutral-darkest"; // Neutral
+  }
+
+  const getLearningStyleColorClasses = (styleName: KolbLearningStyle) : {bg: string, text: string, border: string} => {
+    if (styleName.includes("Diverging")) return {bg: "bg-blue-500/10", text: "text-blue-600", border: "border-blue-500"};
+    if (styleName.includes("Assimilating")) return {bg: "bg-emerald-500/10", text: "text-emerald-600", border: "border-emerald-500"};
+    if (styleName.includes("Converging")) return {bg: "bg-red-500/10", text: "text-red-600", border: "border-red-500"};
+    if (styleName.includes("Accommodating")) return {bg: "bg-yellow-500/10", text: "text-yellow-600", border: "border-yellow-500"};
+    return {bg: "bg-gray-500/10", text: "text-gray-600", border: "border-gray-500"};
+  }
+  const styleColorClasses = getLearningStyleColorClasses(styleDetails.name);
+  const questionsPerStage = KOLB_QUESTIONS.length / 4; // Assuming equal questions per stage
+  const maxStageScore = questionsPerStage * LIKERT_SCALE_OPTIONS[LIKERT_SCALE_OPTIONS.length - 1].value;
+  const minStageScore = questionsPerStage * LIKERT_SCALE_OPTIONS[0].value;
+
+
+  return (
+    <div className="bg-white shadow-2xl rounded-xl p-8 md:p-12 max-w-4xl mx-auto my-10 animate-fadeInManual border border-gray-200">
+      <h2 className="text-3xl md:text-4xl font-bold text-center mb-2 font-slab text-neutral-darkest">
+        {userName ? `${userName}, Your Learning Style is:` : 'Your Learning Style Result'}
+      </h2>
+      {submissionDate && (
+        <p className="text-center text-neutral-DEFAULT text-sm mb-6 -mt-1">
+          Completed on: {submissionDate.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })} at {submissionDate.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+        </p>
+      )}
+      
+      <div className={`p-6 rounded-lg text-center mb-10 shadow-lg ${styleColorClasses.bg} border-2 ${styleColorClasses.border}`}>
+        <p className={`text-4xl md:text-5xl font-bold ${styleColorClasses.text} font-slab`}>
+          {styleDetails.name}
+        </p>
+      </div>
+
+      <h3 className="text-2xl font-semibold text-neutral-darkest mb-2 font-slab">Stage Scores:</h3>
+      <p className="text-neutral-dark mb-6 text-md">These scores indicate your preference for each of the four learning stages. Higher scores suggest a stronger preference for that stage. Each score ranges from {minStageScore} to {maxStageScore}.</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-10">
+        <ScoreCard title="Concrete Experience (CE)" value={scores.CE} colorClass="text-stage-ce" borderColorClass="border-stage-ce/50" extraInfo="Feeling"/>
+        <ScoreCard title="Reflective Observation (RO)" value={scores.RO} colorClass="text-stage-ro" borderColorClass="border-stage-ro/50" extraInfo="Watching"/>
+        <ScoreCard title="Abstract Conceptualization (AC)" value={scores.AC} colorClass="text-stage-ac" borderColorClass="border-stage-ac/50" extraInfo="Thinking"/>
+        <ScoreCard title="Active Experimentation (AE)" value={scores.AE} colorClass="text-stage-ae" borderColorClass="border-stage-ae/50" extraInfo="Doing"/>
+      </div>
+      
+      <h3 className="text-2xl font-semibold text-neutral-darkest mb-2 font-slab">Learning Dimensions:</h3>
+      <p className="text-neutral-dark mb-6 text-md">These scores show your position on the two primary learning dimensions. They help pinpoint your specific learning style.</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+        <ScoreCard title="Perception (AC - CE)" value={ac_ce_score} colorClass={getScoreColor(ac_ce_score)} borderColorClass={ac_ce_score > 0 ? "border-stage-ac/30" : "border-stage-ce/30"} extraInfo={ac_ce_score > 0 ? "Prefers Thinking" : (ac_ce_score < 0 ? "Prefers Feeling" : "Balanced")} />
+        <ScoreCard title="Processing (AE - RO)" value={ae_ro_score} colorClass={getScoreColor(ae_ro_score)} borderColorClass={ae_ro_score > 0 ? "border-stage-ae/30" : "border-stage-ro/30"} extraInfo={ae_ro_score > 0 ? "Prefers Doing" : (ae_ro_score < 0 ? "Prefers Watching" : "Balanced")} />
+      </div>
+      
+      <div className={`p-6 rounded-lg shadow-md mb-8 border-l-4 ${styleColorClasses.border} ${styleColorClasses.bg}`}>
+        <h3 className="text-2xl font-semibold mb-3 font-slab ${styleColorClasses.text}">About Your Style: {styleDetails.name}</h3>
+        <p className="text-neutral-dark mb-3 text-lg"><strong className="font-medium">Primary Strengths:</strong> {styleDetails.primaryStrengths}</p>
+        <p className="text-neutral-dark mb-4 italic text-md">{styleDetails.axisScores}</p>
+        <p className="text-neutral-dark leading-relaxed text-lg">{styleDetails.description}</p>
+      </div>
+
+      <div className="my-12">
+        <h3 className="text-3xl font-bold text-neutral-darkest mb-6 text-center font-slab">
+            Understanding Your Scores & Style
+        </h3>
+        <ExplanationSection title="How Your Stage Scores (CE, RO, AC, AE) Are Calculated" initialOpen={true}>
+          <p>The questionnaire presented you with {KOLB_QUESTIONS.length} statements, {questionsPerStage} for each of the four learning stages:</p>
+          <ul className="list-disc list-inside ml-4 my-2">
+              <li><strong>Concrete Experience (CE):</strong> Associated with learning by 'Feeling'.</li>
+              <li><strong>Reflective Observation (RO):</strong> Associated with learning by 'Watching'.</li>
+              <li><strong>Abstract Conceptualization (AC):</strong> Associated with learning by 'Thinking'.</li>
+              <li><strong>Active Experimentation (AE):</strong> Associated with learning by 'Doing'.</li>
+          </ul>
+          <p>For each statement, you selected a response on a scale from {LIKERT_SCALE_OPTIONS[0].value} ({LIKERT_SCALE_OPTIONS[0].label}) to {LIKERT_SCALE_OPTIONS[LIKERT_SCALE_OPTIONS.length-1].value} ({LIKERT_SCALE_OPTIONS[LIKERT_SCALE_OPTIONS.length-1].label}).</p>
+          <p>Your score for each stage (CE, RO, AC, AE) is the sum of the points you assigned to the {questionsPerStage} statements related to that particular stage. Therefore, each stage score can range from a minimum of {minStageScore} (if you chose '{LIKERT_SCALE_OPTIONS[0].label}' for all {questionsPerStage} statements in a stage) to a maximum of {maxStageScore} (if you chose '{LIKERT_SCALE_OPTIONS[LIKERT_SCALE_OPTIONS.length-1].label}' for all {questionsPerStage} statements).</p>
+          <p>A higher score in a stage indicates a stronger preference for that mode of learning.</p>
+        </ExplanationSection>
+
+        <ExplanationSection title="How Your Learning Dimensions Are Calculated">
+          <p>Kolb's model uses two primary dimensions to categorize learning styles:</p>
+          <ol className="list-decimal list-inside ml-4 my-2 space-y-3">
+            <li>
+              <strong>The Perception Continuum (Abstract Conceptualization - Concrete Experience, or AC-CE):</strong>
+              This dimension describes how you prefer to perceive or grasp information.
+              <ul className="list-disc list-inside ml-6 mt-1">
+                  <li>It's calculated as: <strong>Your AC Score - Your CE Score = {ac_ce_score}</strong>.</li>
+                  <li>A <strong>positive score</strong> (AC &gt; CE) indicates a preference for <em>Abstract Conceptualization</em> (learning by thinking, analyzing theories and concepts).</li>
+                  <li>A <strong>negative score</strong> (CE &gt; AC) indicates a preference for <em>Concrete Experience</em> (learning by feeling, direct involvement, and hands-on experiences).</li>
+                  <li>A score near zero suggests a balance between the two.</li>
+              </ul>
+            </li>
+            <li>
+              <strong>The Processing Continuum (Active Experimentation - Reflective Observation, or AE-RO):</strong>
+              This dimension describes how you prefer to process or transform information.
+              <ul className="list-disc list-inside ml-6 mt-1">
+                  <li>It's calculated as: <strong>Your AE Score - Your RO Score = {ae_ro_score}</strong>.</li>
+                  <li>A <strong>positive score</strong> (AE &gt; RO) indicates a preference for <em>Active Experimentation</em> (learning by doing, applying ideas, and influencing situations).</li>
+                  <li>A <strong>negative score</strong> (RO &gt; AE) indicates a preference for <em>Reflective Observation</em> (learning by watching, listening, and carefully considering experiences).</li>
+                  <li>A score near zero suggests a balance between the two.</li>
+              </ul>
+            </li>
+          </ol>
+        </ExplanationSection>
+
+        <ExplanationSection title="How Your Learning Style Is Determined">
+          <p>Your specific learning style (Diverging, Assimilating, Converging, or Accommodating) is identified by the combination of your scores on these two dimensions (AC-CE and AE-RO). Essentially, these two scores plot your learning preference into one of four quadrants on Kolb's learning style grid:</p>
+          <ul className="list-disc list-inside ml-4 my-2">
+              <li><strong>{KolbLearningStyle.Diverging}:</strong> Characterized by high CE (feeling) and high RO (watching). (Your AC-CE score is low/negative, and your AE-RO score is low/negative).</li>
+              <li><strong>{KolbLearningStyle.Assimilating}:</strong> Characterized by high AC (thinking) and high RO (watching). (Your AC-CE score is high/positive, and your AE-RO score is low/negative).</li>
+              <li><strong>{KolbLearningStyle.Converging}:</strong> Characterized by high AC (thinking) and high AE (doing). (Your AC-CE score is high/positive, and your AE-RO score is high/positive).</li>
+              <li><strong>{KolbLearningStyle.Accommodating}:</strong> Characterized by high CE (feeling) and high AE (doing). (Your AC-CE score is low/negative, and your AE-RO score is high/positive).</li>
+          </ul>
+          <p>Understanding these components can help you appreciate the nuances of your learning preferences and leverage your strengths.</p>
+        </ExplanationSection>
+      </div>
+
+
+      <div className="grid md:grid-cols-2 gap-8 mb-10">
+        <div className="bg-neutral-lightest p-6 rounded-xl shadow-md border border-gray-200">
+          <h4 className="text-xl font-semibold text-neutral-darkest mb-4 font-slab">Key Characteristics:</h4>
+          <ul className="list-disc list-inside text-neutral-dark space-y-2 text-lg">
+            {styleDetails.characteristics.map((char, index) => (
+              <li key={index}>{char}</li>
+            ))}
+          </ul>
+        </div>
+        <div className="bg-neutral-lightest p-6 rounded-xl shadow-md border border-gray-200">
+          <h4 className="text-xl font-semibold text-neutral-darkest mb-4 font-slab">Learning Tips:</h4>
+          <ul className="list-disc list-inside text-neutral-dark space-y-2 text-lg">
+            {styleDetails.learningTips.map((tip, index) => (
+              <li key={index}>{tip}</li>
+            ))}
+          </ul>
+        </div>
+      </div>
+      
+      <div className="text-center mt-12">
+        <StyledButton onClick={onRetake} variant="accent" size="lg">
+          Retake Questionnaire
+        </StyledButton>
+      </div>
+    </div>
+  );
+};
+
+export default ResultsDisplay;
